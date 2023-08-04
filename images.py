@@ -51,7 +51,7 @@ TFORM = transforms.Compose([
 
 RESIZE = lambda x: transforms.Resize(x)
 
-def imshow(img, size = (6, 6)):
+def imshow(img, size = None):
     if len(img.shape) == 4:
         img = img.squeeze(0)
     
@@ -59,7 +59,12 @@ def imshow(img, size = (6, 6)):
 
     img_reshaped = torch.permute(img, (1, 2, 0)).cpu()
     # make the plot the same size as the image
-    plt.figure(figsize=size, frameon=False)
+    if size is None:
+        size = (img_reshaped.shape[1], img_reshaped.shape[0])
+        dpi = 1
+        plt.figure(figsize=size, dpi=dpi, frameon=False)
+    else:
+        plt.figure(figsize=size, frameon=False)
     plt.axis('off')
 
     plt.imshow(img_reshaped.detach())
@@ -80,7 +85,7 @@ def save_image(img, path):
 
     img_reshaped = PILImage.fromarray((img_reshaped * 255).astype(np.uint8))
 
-    img_reshaped.save(path)
+    img_reshaped.save(path, quality=100)
 
 
 class ExistingImage(nn.Module):

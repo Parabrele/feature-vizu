@@ -226,6 +226,10 @@ def stream_difference(model, layer_names, difference_to, activation_loss=mean_L1
         
         This way, the position of the curves, triangles, ... in the original image are preserved
         while the color, gradient, sharpness, ... are replaced by the ones of the style image.
+
+        EDIT : Now we don't really care about the first part, we only care about the features.
+                As the correlation matrix completely disregards the position of the features, they will be preserved.
+                See the notebook for more details.
     """
 
     # First, compute model(difference_to) as it is constant and we need to get the hook
