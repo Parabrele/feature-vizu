@@ -193,15 +193,31 @@ def classe(class_id):
 def mean_L1(a, b):
     return (a - b).abs().mean()
 
+def feature_max(tensor):
+    b, c, h, w = tensor.size()
+    flat_tensor = tensor.view(b * c, h * w)
+
+    corr = torch.max(flat_tensor, dim=1)
+
+    return corr.values
+
+def feature_mean(tensor):
+    b, c, h, w = tensor.size()
+    flat_tensor = tensor.view(b * c, h * w)
+
+    corr = torch.mean(flat_tensor, dim=1)
+
+    return corr
+
 def feature_corelation_matrix(tensor):
     """
     See stream_difference for more details.
     """
     b, c, h, w = tensor.size()
     flat_tensor = tensor.view(b * c, h * w)
-    gram = torch.mm(flat_tensor, flat_tensor.t())
-    gram /= (b * c * h * w)
-    return gram
+    corr = torch.mm(flat_tensor, flat_tensor.t())
+    corr /= (b * c * h * w)
+    return corr
 
 
 def stream_difference(model, layer_names, difference_to, activation_loss=mean_L1, transform=None):
