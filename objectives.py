@@ -209,14 +209,44 @@ def feature_mean(tensor):
 
     return corr
 
-def feature_corelation_matrix(tensor):
+def feature_std(tensor):
+    b, c, h, w = tensor.size()
+    flat_tensor = tensor.view(b * c, h * w)
+
+    corr = torch.std(flat_tensor, dim=1)
+
+    return corr
+
+def corr_norm(tensor):
+    b, c, h, w = tensor.size()
+    flat_tensor = tensor.view(b * c, h * w)
+
+    squared = flat_tensor ** 2
+    norm = torch.sqrt(torch.sum(squared, dim=1)) # dim : b * c
+    norm_colunm = norm.view(b * c, 1)
+    norm_matrix = torch.mm(norm_colunm, norm_colunm.t())
+
+    return norm_matrix
+
+def feature_correlation_matrix(tensor, normalize=True, ccoef=False):
     """
     See stream_difference for more details.
+
+    Note : wtf is ccoef ?! (also, lower the learning rate)
     """
     b, c, h, w = tensor.size()
     flat_tensor = tensor.view(b * c, h * w)
+
+    if ccoef:
+        flat_tensor = flat_tensor - torch.mean(flat_tensor, dim=1, keepdim=True)
+    
     corr = torch.mm(flat_tensor, flat_tensor.t())
-    corr /= (b * c * h * w)
+
+    if normalize:
+        norm = corr_norm(tensor)
+        corr /= norm + 1e-8
+    else:
+        corr /= (b * c * h * w)
     return corr
 
 
