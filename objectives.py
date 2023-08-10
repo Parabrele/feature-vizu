@@ -249,6 +249,43 @@ def feature_correlation_matrix(tensor, normalize=True, ccoef=False):
         corr /= (b * c * h * w)
     return corr
 
+def get_activations(layer_hook, transform=None):
+    activations = []
+    for hook in layer_hook:
+        activation = hook.output
+        if transform is not None:
+            activation = transform(activation)
+
+        activations.append(activation)
+    
+    return activations
+
+def get_stream(model, layer_names, difference_to, transform=None):
+    layer_hh = [get_hook(model, layer_name, get_handles=True) for layer_name in layer_names]
+    layer_hook = [hh[0] for hh in layer_hh]
+    layer_handles = [hh[1] for hh in layer_hh]
+    model(preprocess_image(difference_to))
+    remove_handles(model, layer_handles)
+
+    activations = get_activations(layer_hook, transform=transform)
+
+    return activations
+
+def fusion_activations(activations, mode):
+    nb_layers = len(activations[0])
+    stacked = [0]*nb_layers
+    for layer in range(nb_layers):
+        stacked[layer] = torch.stack([activation[layer] for activation in activations], dim=0)
+
+        if mode == "mean":
+            stacked[layer] = torch.mean(stacked[layer], dim=0)
+        elif mode == "max":
+            stacked[layer] = torch.max(stacked[layer], dim=0).values
+        elif mode == "sum":
+            stacked[layer] = torch.sum(stacked[layer], dim=0)
+    
+    return stacked
+
 
 def stream_difference(model, layer_names, difference_to, activation_loss=mean_L1, transform=None):
     """
@@ -282,30 +319,29 @@ def stream_difference(model, layer_names, difference_to, activation_loss=mean_L1
     # While computing it we will save the activations of the layers we are interested in
     # in layer_hook_to, and then we will disconnect those hook to avoid overriding them
     # in future computations.
-    layer_hh_to = [get_hook(model, layer_name, get_handles=True) for layer_name in layer_names]
-    layer_hook_to = [hh[0] for hh in layer_hh_to]
-    layer_handles_to = [hh[1] for hh in layer_hh_to]
-    model(preprocess_image(difference_to))
-    remove_handles(model, layer_handles_to)
+    if isinstance(difference_to, list):
+        activations = []
+        for img in difference_to:
+            activations.append(get_stream(model, layer_names, img, transform=transform))
+        activations = fusion_activations(activations, mode="mean")
+    else:
+        activations = get_stream(model, layer_names, difference_to, transform=transform)
     
     # Now that we have initialized everything, we can define the objective function as usual
     layer_hook_from = [get_hook(model, layer_name) for layer_name in layer_names]
 
     def obj_fct(model_output):
         loss = 0
-        for hook_from, hook_to in zip(layer_hook_from, layer_hook_to):
+        for i, hook_from in enumerate(layer_hook_from):
             activation_from = hook_from.output
-            activation_to = hook_to.output
 
             if transform is not None:
                 activation_from = transform(activation_from)
-                activation_to = transform(activation_to)
             
-            loss += activation_loss(activation_from, activation_to)
+            loss += activation_loss(activation_from, activations[i])
         
         return loss
     
     name = "stream difference"
 
     return Objective(obj_fct, name=name)
-                
