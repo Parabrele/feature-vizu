@@ -190,8 +190,8 @@ def classe(class_id):
 # The goal is to extract the style of an image and infuse it into another while keeping the important features of the latter.
 #####
 
-def mean_L1(a, b):
-    return (a - b).abs().mean()
+def mean_L1(source, target):
+    return (source - target).abs().mean()
 
 def feature_max(tensor):
     b, c, h, w = tensor.size()
@@ -286,7 +286,6 @@ def fusion_activations(activations, mode):
     
     return stacked
 
-
 def stream_difference(model, layer_names, difference_to, activation_loss=mean_L1, transform=None):
     """
     Measures the activation difference between the stream of the "difference_to" image and the stream of the "blended" (difference_from) image, which is being optimized.
@@ -319,6 +318,7 @@ def stream_difference(model, layer_names, difference_to, activation_loss=mean_L1
     # While computing it we will save the activations of the layers we are interested in
     # in layer_hook_to, and then we will disconnect those hook to avoid overriding them
     # in future computations.
+
     if isinstance(difference_to, list):
         activations = []
         for img in difference_to:
@@ -345,3 +345,18 @@ def stream_difference(model, layer_names, difference_to, activation_loss=mean_L1
     name = "stream difference"
 
     return Objective(obj_fct, name=name)
+
+def get_truncated_model(model, layer_names):
+    max_layer = max([int(layer_name.split("_")[1]) for layer_name in layer_names])
+    i = 0
+    truncated_model = nn.Sequential()
+    for layer in model.children():
+        if isinstance(layer, nn.Conv2d):
+            i+=1
+
+        truncated_model.add_module(layer.__class__.__name__ + "_" + str(i), layer)
+        
+        if i >= max_layer:
+            break
+
+    return truncated_model
